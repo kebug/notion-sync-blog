@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: notion-sync-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: notion_sync_blog
+      MYSQL_USER: notion_user
+      MYSQL_PASSWORD: notion_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - notion-sync-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: notion-sync-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - notion-sync-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: notion-sync-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./content:/app/content
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - notion-sync-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: notion-sync-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080/api
+    depends_on:
+      - backend
+    networks:
+      - notion-sync-network
+    restart: unless-stopped
+
+networks:
+  notion-sync-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+

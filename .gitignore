@@ -1,0 +1,41 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 依赖
+vendor/
+
+# 配置文件
+config.yaml
+.env
+
+# 内容文件
+content/
+
+# 日志
+logs/
+*.log
+
+# Node
+node_modules/
+dist/
+build/
+.DS_Store
+
+# 临时文件
+*.tmp
+*.temp
+
