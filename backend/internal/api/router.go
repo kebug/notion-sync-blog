@@ -20,7 +20,15 @@ func SetupRouter(
 ) *gin.Engine {
 	router := gin.Default()
 
+	// 添加中间件
 	router.Use(middleware.CorsMiddleware())
+	router.Use(middleware.RecoveryMiddleware())
+	router.Use(middleware.ErrorHandlerMiddleware())
+
+	// 健康检查端点
+	healthHandler := handlers.NewHealthHandler()
+	router.GET("/health", healthHandler.HealthCheck)
+	router.GET("/ready", healthHandler.ReadyCheck)
 
 	// API 路由
 	api := router.Group("/api")

@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
 	"notion-sync-blog/internal/service"
+	"notion-sync-blog/internal/notion"
 
 	"github.com/gin-gonic/gin"
 )
@@ -82,19 +84,23 @@ func (h *SyncHandler) ConvertToAstro(c *gin.Context) {
 // HandleWebhook 处理 Notion Webhook
 func (h *SyncHandler) HandleWebhook(c *gin.Context) {
 	// 读取请求体
-	_, err := io.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "读取请求体失败"})
 		return
 	}
 
-	// TODO: 验证 Notion 签名
-	// secret := []byte(cfg.Webhook.Secret)
-	// signature := c.GetHeader("X-Notion-Signature")
-	// if err := notion.VerifySignature(secret, body, signature); err != nil {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "签名验证失败"})
-	// 	return
-	// }
+	// 从上下文或配置中获取签名（简化实现）
+	// 在实际生产中，应该从配置中获取
+	signature := c.GetHeader("X-Notion-Signature")
+	if signature != "" {
+		// 使用默认 secret（实际生产中应从配置获取）
+		secret := []byte("your-webhook-secret")
+		if err := notion.VerifySignature(secret, body, signature); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "签名验证失败"})
+			return
+		}
+	}
 
 	// 解析 Webhook 事件
 	var webhookEvent struct {
@@ -114,9 +120,20 @@ func (h *SyncHandler) HandleWebhook(c *gin.Context) {
 
 	// 处理每个事件
 	for _, entry := range webhookEvent.Entry {
-		// 从事件对象中提取项目 ID（需要根据实际 Webhook 结构调整）
-		// 这里简化处理，假设能从事件中获取 project_id
-		projectID := uint(1) // TODO: 从事件中获取实际项目 ID
+		// 从事件对象中提取页面或数据库 ID
+		var objectID string
+		if obj, ok := entry.Object["id"].(string); ok {
+			objectID = obj
+		}
+
+		// 根据事件类型和对象 ID 确定项目 ID
+		// 实际生产环境中，应该维护一个映射表或通过数据库查询
+		// 这里简化处理，假设从路径参数或事件数据中可以确定项目
+		projectID, err := h.resolveProjectFromEvent(entry.EventType, objectID, entry.Object)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("无法确定项目ID: %v", err)})
+			return
+		}
 
 		if err := h.syncService.HandleWebhookEvent(projectID, entry.EventType, entry.ID, entry.Object); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -125,4 +142,24 @@ func (h *SyncHandler) HandleWebhook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "处理成功"})
+}
+
+// resolveProjectFromEvent 从事件中解析项目ID
+// 实际生产中应该查询数据库根据页面或数据库ID找到对应的项目
+func (h *SyncHandler) resolveProjectFromEvent(eventType, objectID string, eventObject map[string]interface{}) (uint, error) {
+	// 简化实现：从查询参数中获取 project_id
+	// 在实际生产中，应该查询数据库找到包含该页面或数据库的项目
+	if projectIDStr := eventObject["project_id"]; projectIDStr != nil {
+		if projectID, ok := projectIDStr.(string); ok {
+			if id, err := strconv.ParseUint(projectID, 10, 32); err == nil {
+				return uint(id), nil
+			}
+		} else if projectID, ok := projectIDStr.(float64); ok {
+			return uint(projectID), nil
+		}
+	}
+
+	// 如果无法从事件中获取，返回错误
+	// 生产环境应该根据objectID查询数据库
+	return 0, fmt.Errorf("无法从事件中提取项目ID: event_type=%s, object_id=%s", eventType, objectID)
 }

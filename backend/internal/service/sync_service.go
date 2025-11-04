@@ -73,11 +73,60 @@ func (s *syncService) SyncDatabase(projectID uint) error {
 	}
 
 	// 创建 Notion 客户端
-	s.notionClient = notion.NewClient(project.NotionToken)
+	client := notion.NewClient(project.NotionToken)
 
-	// 获取根页面下的数据库（简化：假设根页面包含数据库）
-	// 这里需要根据实际需求查找数据库
-	// 暂时跳过数据库同步的具体实现，因为需要知道如何从根页面查找数据库
+	// 获取项目的数据库
+	database, err := s.databaseRepo.GetByProjectID(projectID)
+	if err != nil {
+		// 如果没有数据库记录，创建一个
+		// 实际环境中，数据库ID应该从项目配置中获取或通过API查询
+		database = &model.NotionDatabase{
+			ProjectID:        projectID,
+			NotionDatabaseID: "", // 需要从项目根页面查询
+		}
+	}
+
+	// 如果有数据库ID，查询数据库内容
+	if database.NotionDatabaseID != "" {
+		// 从 Notion API 获取数据库
+		pages, err := client.QueryDatabase(database.NotionDatabaseID)
+		if err != nil {
+			s.updateLogError(log.ID, err)
+			return fmt.Errorf("查询数据库失败: %w", err)
+		}
+
+		// 将数据库内容序列化为JSON
+		dbData, err := json.Marshal(pages)
+		if err != nil {
+			s.updateLogError(log.ID, err)
+			return fmt.Errorf("序列化数据库数据失败: %w", err)
+		}
+
+		// 更新或创建数据库记录
+		database.CachedData = string(dbData)
+		database.LastSyncedAt = time.Now()
+
+		// 查找是否已存在
+		existingDB, _ := s.databaseRepo.GetByNotionDatabaseID(projectID, database.NotionDatabaseID)
+		if existingDB == nil {
+			if err := s.databaseRepo.Create(database); err != nil {
+				s.updateLogError(log.ID, err)
+				return fmt.Errorf("创建数据库记录失败: %w", err)
+			}
+		} else {
+			database.ID = existingDB.ID
+			if err := s.databaseRepo.Update(database); err != nil {
+				s.updateLogError(log.ID, err)
+				return fmt.Errorf("更新数据库记录失败: %w", err)
+			}
+		}
+
+		// 缓存到 Redis
+		cacheKey := cache.GetDatabaseKey(projectID, database.NotionDatabaseID)
+		if err := s.cache.Set(cacheKey, pages, 24*time.Hour); err != nil {
+			fmt.Printf("缓存数据库失败: %v\n", err)
+		}
+	}
 
 	s.updateLogSuccess(log.ID)
 	return nil
