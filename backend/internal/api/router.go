@@ -3,6 +3,7 @@ package api
 import (
 	"notion-sync-blog/internal/api/handlers"
 	"notion-sync-blog/internal/cache"
+	"notion-sync-blog/internal/middleware"
 	"notion-sync-blog/internal/repository"
 	"notion-sync-blog/internal/service"
 
@@ -19,19 +20,7 @@ func SetupRouter(
 ) *gin.Engine {
 	router := gin.Default()
 
-	// CORS 中间件（简化版）
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-		
-		c.Next()
-	})
+	router.Use(middleware.CorsMiddleware())
 
 	// API 路由
 	api := router.Group("/api")
@@ -62,4 +51,3 @@ func SetupRouter(
 
 	return router
 }
-

@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"notion-sync-blog/internal/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 // SyncHandler 同步处理器
@@ -81,7 +82,7 @@ func (h *SyncHandler) ConvertToAstro(c *gin.Context) {
 // HandleWebhook 处理 Notion Webhook
 func (h *SyncHandler) HandleWebhook(c *gin.Context) {
 	// 读取请求体
-	body, err := io.ReadAll(c.Request.Body)
+	_, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "读取请求体失败"})
 		return
@@ -125,4 +126,3 @@ func (h *SyncHandler) HandleWebhook(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "处理成功"})
 }
-

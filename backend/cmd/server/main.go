@@ -9,7 +9,6 @@ import (
 	"notion-sync-blog/config"
 	"notion-sync-blog/internal/api"
 	"notion-sync-blog/internal/cache"
-	"notion-sync-blog/internal/model"
 	"notion-sync-blog/internal/repository"
 	"notion-sync-blog/internal/service"
 	"notion-sync-blog/pkg/database"
@@ -38,15 +37,9 @@ func main() {
 	}
 	defer database.CloseDB()
 
-	// 自动迁移（生产环境建议使用迁移文件）
-	if err := database.DB.AutoMigrate(
-		&model.Project{},
-		&model.Document{},
-		&model.NotionDatabase{},
-		&model.SyncLog{},
-	); err != nil {
-		log.Fatalf("数据库迁移失败: %v", err)
-	}
+	// 注意：使用 sqlx 后，需要手动执行数据库迁移
+	// 建议使用数据库迁移工具（如 golang-migrate）管理数据库结构
+	log.Println("使用 sqlx，请确保数据库表已创建（参考 migrations 目录）")
 
 	// 初始化 Redis
 	redisCache, err := cache.NewCache(&cfg.Redis)
@@ -99,4 +92,3 @@ func main() {
 
 	log.Println("服务器正在关闭...")
 }
-

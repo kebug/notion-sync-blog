@@ -6,16 +6,15 @@ import (
 
 // Project 项目模型
 type Project struct {
-	ID                uint      `gorm:"primaryKey" json:"id"`
-	NotionRootPageID  string    `gorm:"type:varchar(255);not null;uniqueIndex" json:"notion_root_page_id"`
-	NotionRootPageTitle string  `gorm:"type:varchar(500)" json:"notion_root_page_title"`
-	NotionToken       string    `gorm:"type:text;not null" json:"-"` // 不返回给前端
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                  uint      `db:"id" json:"id"`
+	NotionRootPageID    string    `db:"notion_root_page_id" json:"notion_root_page_id"`
+	NotionRootPageTitle string    `db:"notion_root_page_title" json:"notion_root_page_title"`
+	NotionToken         string    `db:"notion_token" json:"-"` // 不返回给前端
+	CreatedAt           time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt           time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // TableName 指定表名
 func (Project) TableName() string {
 	return "projects"
 }
-
